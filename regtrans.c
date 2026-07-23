@@ -71,8 +71,7 @@ char* translate_via_trans(const char *text, const char *source, const char *targ
     fclose(temp);
 
     char command[MAX_LINE];
-    snprintf(command, sizeof(command), "trans -b %s:%s < /tmp/trans_input.txt 2>/dev/null", 
-             source, target);
+    snprintf(command, sizeof(command), "trans -b %s:%s < /tmp/trans_input.txt 2>/dev/null", source, target);
 
     FILE *pipe = popen(command, "r");
     if (!pipe)
@@ -104,14 +103,10 @@ void process_file(Options opts)
     FILE *output = fopen(opts.output_file, "wb");
 
     if (!input)
-    {
-        fprintf(stderr, "Ошибка: не удалось открыть входной файл %s\n", opts.input_file);
         exit(1);
-    }
 
     if (!output)
     {
-        fprintf(stderr, "Ошибка: не удалось открыть выходной файл %s\n", opts.output_file);
         fclose(input);
         exit(1);
     }
@@ -120,19 +115,15 @@ void process_file(Options opts)
     int reti = regcomp(&regex, opts.pattern, REG_EXTENDED);
     if (reti)
     {
-        fprintf(stderr, "Ошибка компиляции регулярного выражения\n");
         fclose(input);
         fclose(output);
         exit(1);
     }
 
     unsigned char line[MAX_LINE];
-    int line_num = 0;
-    int translated_count = 0;
 
     while (fgets((char *)line, sizeof(line), input))
     {
-        line_num++;
         unsigned char result_line[MAX_LINE];
         result_line[0] = '\0';
         
@@ -146,10 +137,9 @@ void process_file(Options opts)
             strncat((char *)result_line, current, match.rm_so);
 
             // Извлекаем найденный текст
-            int match_len = match.rm_eo - match.rm_so;
             char matched_text[MAX_MATCH];
-            strncpy(matched_text, current + match.rm_so, match_len);
-            matched_text[match_len] = '\0';
+            strncpy(matched_text, current + match.rm_so, match.rm_eo - match.rm_so);
+            matched_text[match.rm_eo - match.rm_so] = '\0';
 
             // Переводим найденный текст
             char *translated = translate_via_trans(matched_text, opts.source_lang, opts.target_lang);
@@ -157,9 +147,8 @@ void process_file(Options opts)
             if (translated && strlen(translated) > 0)
             {
                 strcat((char *)result_line, translated);
-                fprintf(stdout, "Переведено: '%s' -> '%s'\n", matched_text, translated);
+                fprintf(stdout, "'%s' -> '%s'\n", matched_text, translated);
                 fflush(stdout);
-                translated_count++;
             }
             else
             {
