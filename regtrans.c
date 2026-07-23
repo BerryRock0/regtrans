@@ -25,8 +25,8 @@ void print_usage()
     fprintf(stdout, "  -s <[a-z]>. Source language\n");
     fprintf(stdout, "  -t <[a-z]>. Target language\n");
     fprintf(stdout, "  -p <regexp>. Regular Expression\n");
-    fprintf(stdout, "  -0 <[a-zA-Z0-9_.]>. LANG environment");
-    fprintf(stdout, "  -1 <[a-zA-Z0-9_.]>. LC_ALL environment ");
+    fprintf(stdout, "  -0 <[a-zA-Z0-9_.]>. LANG environment\n");
+    fprintf(stdout, "  -1 <[a-zA-Z0-9_.]>. LC_ALL environment\n ");
     fflush(stdout);
 }
 
