@@ -5,8 +5,8 @@
 #include <locale.h>
 #include <wchar.h>
 
-#define MAX_LINE 8192
-#define MAX_MATCH 512
+#define MAX_LINE 2147483647
+#define MAX_MATCH 2147483647
 
 typedef struct
 {
@@ -16,6 +16,19 @@ typedef struct
     char *source_lang;
     char *target_lang;
 } Options;
+
+void print_usage()
+{
+    fprintf(stdout, "  -i <[a-zA-Z0-9/-.]> Input file\n");
+    fprintf(stdout, "  -o <[a-zA-Z0-9/-.]> Output file\n");
+    fprintf(stdout, "  -s <[a-z]>. Source language\n");
+    fprintf(stdout, "  -t <[a-z]>. Target language\n");
+    fprintf(stdout, "  -p <regexp>. Regular Expression\n");
+    fprintf(stdout, "  -0 <[a-zA-Z0-9_.]>. LANG environment");
+    fprintf(stdout, "  -1 <[a-zA-Z0-9_.]>. LC_ALL environment ");
+    fflush(stdout);
+}
+
 
 Options parse_arguments(int argc, char *argv[])
 {
@@ -31,9 +44,9 @@ Options parse_arguments(int argc, char *argv[])
             case 's': opts.source_lang = optarg; break;
             case 't': opts.target_lang = optarg; break;
             case 'p': opts.pattern = optarg; break;
-            case 'E': setenv("LC_ALL", optarg, 1); break;
-            case 'l': setenv("LANG", optarg, 1); break;
-            case 'h': fprintf(stdout, "-i <input file> -o <output file> -p <regexp> -s <source lang> -t <target lang> -l <en>"); fflush(stdout);
+            case '0': setenv("LANG", optarg, 1); break;
+            case '1': setenv("LC_ALL", optarg, 1); break;
+            case 'h': print_usage(); fflush(stdout);
             case '?': fprintf(stderr, "Unknown option\n"); exit(1);
         }        
     }
@@ -120,7 +133,7 @@ void process_file(Options opts)
     while (fgets((char *)line, sizeof(line), input))
     {
         line_num++;
-        unsigned char result_line[MAX_LINE * 3];
+        unsigned char result_line[MAX_LINE];
         result_line[0] = '\0';
         
         regmatch_t match;
