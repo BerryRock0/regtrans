@@ -6,8 +6,8 @@
 #include <locale.h>
 #include <wchar.h>
 
-#define MAX_LINE 8192
-#define MAX_MATCH 8192
+#define MAX_LINE 10000
+#define MAX_MATCH 10000
 
 typedef struct
 {
@@ -55,9 +55,9 @@ Options parse_arguments(int argc, char *argv[])
     return opts;
 }
 
-char* translate_via_trans(const char *text, const char *source, const char *target)
+/* char* translate_via_trans(const char *text, const char *source, const char *target)
 {
-    static char result[]; //MAX_LINE
+    static char result[MAX_LINE];
     memset(result, 0, sizeof(result));
 
     // Создаём временный файл для передачи текста
@@ -68,7 +68,7 @@ char* translate_via_trans(const char *text, const char *source, const char *targ
     fprintf(temp, "%s", text);
     fclose(temp);
 
-    char command[]; //MAX_LINE
+    char command[MAX_LINE];
     snprintf(command, sizeof(command), "trans -b %s:%s < /tmp/trans_input.txt 2>/dev/null", source, target);
 
     FILE *pipe = popen(command, "r");
@@ -83,6 +83,72 @@ char* translate_via_trans(const char *text, const char *source, const char *targ
     
     // Удаляем временный файл
     remove("/tmp/trans_input.txt");
+
+    return result;    
+} */
+
+char* translate_via_trans(const char *text, const char *source, const char *target)
+{
+    static char result[MAX_LINE];
+    memset(result, 0, sizeof(result));
+
+    int inpipe[2];   // text -> child stdin
+    int outpipe[2];  // child stdout -> parent
+
+    if (pipe(inpipe) != 0) return NULL;
+    if (pipe(outpipe) != 0) return NULL;
+
+    pid_t pid = fork();
+    if (pid < 0) return NULL;
+
+    if (pid == 0)
+    {
+        // child
+        dup2(inpipe[0], STDIN_FILENO);
+        dup2(outpipe[1], STDOUT_FILENO);
+        close(inpipe[0]); close(inpipe[1]);
+        close(outpipe[0]); close(outpipe[1]);
+
+        // stderr в /dev/null (опционально)
+        int devnull = open("/dev/null", O_WRONLY);
+        if (devnull >= 0)
+        {
+            dup2(devnull, STDERR_FILENO);
+            close(devnull);
+        }
+
+        // Запуск: trans -b source:target
+        // Важно: без shell, чтобы не ловить проблемы с кавычками
+        char spec[256];
+        snprintf(spec, sizeof(spec), "%s:%s", source, target);
+
+        execlp("trans", "trans", "-b", spec, (char*)NULL);
+        _exit(127);
+    }
+
+    // parent
+    close(inpipe[0]);
+    close(outpipe[1]);
+
+    // Пишем text в stdin child
+    size_t n = strlen(text);
+    // Гарантируем перевод строки, если trans ждёт “конец строки”
+    write(inpipe[1], text, n);
+    write(inpipe[1], "\n", 1);
+    close(inpipe[1]);
+
+    // Читаем результат
+    ssize_t r = read(outpipe[0], result, sizeof(result) - 1);
+    if (r > 0) result[r] = '\0';
+    close(outpipe[0]);
+
+    // Ждём завершения
+    int status = 0;
+    waitpid(pid, &status, 0);
+
+    // Подчистим хвостовой newline
+    size_t len = strlen(result);
+    if (len && result[len-1] == '\n') result[len-1] = '\0';
 
     return result;
 }
@@ -114,9 +180,8 @@ void process_file(Options opts)
 
     while (fgets((char *)line, sizeof(line), input))
     {
-        unsigned char result_line[]; //MAX_LINE
+        unsigned char result_line[MAX_LINE];
         result_line[0] = '\0';
-        
         regmatch_t match;
         char *work_line = strdup((char *)line);
         char *current = work_line;
@@ -127,7 +192,7 @@ void process_file(Options opts)
             strncat((char *)result_line, current, match.rm_so);
 
             // Извлекаем найденный текст
-            char matched_text[]; //MAX_MATCH
+            char matched_text[MAX_MATCH];
             strncpy(matched_text, current + match.rm_so, match.rm_eo - match.rm_so);
             matched_text[match.rm_eo - match.rm_so] = '\0';
 
