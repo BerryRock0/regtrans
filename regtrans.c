@@ -57,7 +57,7 @@ Options parse_arguments(int argc, char *argv[])
 
 char* translate_via_trans(const char *text, const char *source, const char *target)
 {
-    static char result[MAX_LINE];
+    static char result[]; //MAX_LINE
     memset(result, 0, sizeof(result));
 
     // Создаём временный файл для передачи текста
@@ -68,7 +68,7 @@ char* translate_via_trans(const char *text, const char *source, const char *targ
     fprintf(temp, "%s", text);
     fclose(temp);
 
-    char command[MAX_LINE];
+    char command[]; //MAX_LINE
     snprintf(command, sizeof(command), "trans -b %s:%s < /tmp/trans_input.txt 2>/dev/null", source, target);
 
     FILE *pipe = popen(command, "r");
@@ -114,7 +114,7 @@ void process_file(Options opts)
 
     while (fgets((char *)line, sizeof(line), input))
     {
-        unsigned char result_line[MAX_LINE];
+        unsigned char result_line[]; //MAX_LINE
         result_line[0] = '\0';
         
         regmatch_t match;
@@ -127,7 +127,7 @@ void process_file(Options opts)
             strncat((char *)result_line, current, match.rm_so);
 
             // Извлекаем найденный текст
-            char matched_text[MAX_MATCH];
+            char matched_text[]; //MAX_MATCH
             strncpy(matched_text, current + match.rm_so, match.rm_eo - match.rm_so);
             matched_text[match.rm_eo - match.rm_so] = '\0';
 
