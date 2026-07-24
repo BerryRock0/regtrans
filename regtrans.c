@@ -6,8 +6,8 @@
 #include <locale.h>
 #include <wchar.h>
 
-#define MAX_LINE 2147483647
-#define MAX_MATCH 2147483647
+#define MAX_LINE 8192
+#define MAX_MATCH 8192
 
 typedef struct
 {
@@ -25,8 +25,9 @@ void print_usage()
     fprintf(stdout, "  -s <[a-z]>. Source language\n");
     fprintf(stdout, "  -t <[a-z]>. Target language\n");
     fprintf(stdout, "  -p <regexp>. Regular Expression\n");
-    fprintf(stdout, "  -0 <[a-zA-Z0-9_.]>. LANG environment\n");
-    fprintf(stdout, "  -1 <[a-zA-Z0-9_.]>. LC_ALL environment\n ");
+    fprintf(stdout, "  -l <[a-zA-Z0-9_.]>. LANG environment\n");
+    fprintf(stdout, "  -e <[a-zA-Z0-9_.]>. LC_ALL environment\n ");
+    fprintf(stdout, "  -h. Prints help\n ");
     fflush(stdout);
 }
 
@@ -36,7 +37,7 @@ Options parse_arguments(int argc, char *argv[])
     int flags;
     Options opts = {.input_file = NULL, .output_file = NULL, .source_lang = NULL, .target_lang = NULL, .pattern = NULL};
 
-    while((flags = getopt(argc, argv, "i:o:s:t:p:E:l:h")) != -1)
+    while((flags = getopt(argc, argv, "i:o:s:t:p:l:e:h")) != -1)
     {
         switch (flags)
         {
@@ -45,10 +46,9 @@ Options parse_arguments(int argc, char *argv[])
             case 's': opts.source_lang = optarg; break;
             case 't': opts.target_lang = optarg; break;
             case 'p': opts.pattern = optarg; break;
-            case '0': setenv("LANG", optarg, 1); break;
-            case '1': setenv("LC_ALL", optarg, 1); break;
+            case 'l': setenv("LANG", optarg, 1); break;
+            case 'e': setenv("LC_ALL", optarg, 1); break;
             case 'h': print_usage(); fflush(stdout);
-            case '?': fprintf(stderr, "Unknown option\n"); exit(1);
         }        
     }
 
@@ -63,10 +63,7 @@ char* translate_via_trans(const char *text, const char *source, const char *targ
     // Создаём временный файл для передачи текста
     FILE *temp = fopen("/tmp/trans_input.txt", "w");
     if (!temp)
-    {
-        perror("Ошибка создания временного файла");
         return NULL;
-    }
     
     fprintf(temp, "%s", text);
     fclose(temp);
@@ -76,19 +73,11 @@ char* translate_via_trans(const char *text, const char *source, const char *targ
 
     FILE *pipe = popen(command, "r");
     if (!pipe)
-    {
-        perror("Ошибка при выполнении trans");
         return NULL;
-    }
 
     if (fgets(result, sizeof(result), pipe) != NULL)
-    {
-        size_t len = strlen(result);
-        if (len > 0 && result[len - 1] == '\n')
-        {
-            result[len - 1] = '\0';
-        }
-    }
+        if (strlen(result) != 0 && result[strlen(result) - 1] == '\n')
+            result[strlen(result) - 1] = '\0';
 
     pclose(pipe);
     
@@ -145,15 +134,13 @@ void process_file(Options opts)
             // Переводим найденный текст
             char *translated = translate_via_trans(matched_text, opts.source_lang, opts.target_lang);
 
-            if (translated && strlen(translated) > 0)
-            {
+            if (translated)
                 strcat((char *)result_line, translated);
-                fprintf(stdout, "'%s' -> '%s'\n", matched_text, translated);
-                fflush(stdout);
-            }
-            else
+                
+            if (strlen(translated) != 0)
             {
-                strcat((char *)result_line, matched_text);
+                fprintf(stdout, "%s -> %s\n", matched_text, translated);
+                fflush(stdout);
             }
 
             // Переходим к следующей части
