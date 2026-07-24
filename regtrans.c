@@ -5,6 +5,9 @@
 #include <regex.h>
 #include <locale.h>
 #include <wchar.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <fcntl.h> 
 
 #define MAX_LINE 10000
 #define MAX_MATCH 10000
@@ -55,7 +58,7 @@ Options parse_arguments(int argc, char *argv[])
     return opts;
 }
 
-/* char* translate_via_trans(const char *text, const char *source, const char *target)
+char* translate_via_trans(const char *text, const char *source, const char *target)
 {
     static char result[MAX_LINE];
     memset(result, 0, sizeof(result));
@@ -85,72 +88,6 @@ Options parse_arguments(int argc, char *argv[])
     remove("/tmp/trans_input.txt");
 
     return result;    
-} */
-
-char* translate_via_trans(const char *text, const char *source, const char *target)
-{
-    static char result[MAX_LINE];
-    memset(result, 0, sizeof(result));
-
-    int inpipe[2];   // text -> child stdin
-    int outpipe[2];  // child stdout -> parent
-
-    if (pipe(inpipe) != 0) return NULL;
-    if (pipe(outpipe) != 0) return NULL;
-
-    pid_t pid = fork();
-    if (pid < 0) return NULL;
-
-    if (pid == 0)
-    {
-        // child
-        dup2(inpipe[0], STDIN_FILENO);
-        dup2(outpipe[1], STDOUT_FILENO);
-        close(inpipe[0]); close(inpipe[1]);
-        close(outpipe[0]); close(outpipe[1]);
-
-        // stderr в /dev/null (опционально)
-        int devnull = open("/dev/null", O_WRONLY);
-        if (devnull >= 0)
-        {
-            dup2(devnull, STDERR_FILENO);
-            close(devnull);
-        }
-
-        // Запуск: trans -b source:target
-        // Важно: без shell, чтобы не ловить проблемы с кавычками
-        char spec[256];
-        snprintf(spec, sizeof(spec), "%s:%s", source, target);
-
-        execlp("trans", "trans", "-b", spec, (char*)NULL);
-        _exit(127);
-    }
-
-    // parent
-    close(inpipe[0]);
-    close(outpipe[1]);
-
-    // Пишем text в stdin child
-    size_t n = strlen(text);
-    // Гарантируем перевод строки, если trans ждёт “конец строки”
-    write(inpipe[1], text, n);
-    write(inpipe[1], "\n", 1);
-    close(inpipe[1]);
-
-    // Читаем результат
-    ssize_t r = read(outpipe[0], result, sizeof(result) - 1);
-    if (r > 0) result[r] = '\0';
-    close(outpipe[0]);
-
-    // Ждём завершения
-    int status = 0;
-    waitpid(pid, &status, 0);
-
-    // Подчистим хвостовой newline
-    size_t len = strlen(result);
-    if (len && result[len-1] == '\n') result[len-1] = '\0';
-
-    return result;
 }
 
 void process_file(Options opts)
